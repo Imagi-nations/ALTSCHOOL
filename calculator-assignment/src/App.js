@@ -1,278 +1,159 @@
-import {React, ReactDOM, ReactPoint} from "react"
+import Wrapper from "./Components/Wrapper";
+import Home from "./Components/Home";
+import ButtonsContainer from "./Components/ButtonsContainer";
+import Button from "./Components/Button";
+import{ useState} from "react"
 
-const PointTarget = ReactPoint.PointTarget
+const btnValues = [
+  ["C", "+-", "%", "/"],
+  [7, 8, 9, "X"],
+  [4, 5, 6, "-"],
+  [1, 2, 3, "+"],
+  [0, ".", "="],
+];
 
-class AutoScalingText extends React.Component {
-  state = {
-    scale: 1
-  };
-  
-  componentDidUpdate() {
-    const { scale } = this.state
-    
-    const node = this.node
-    const parentNode = node.parentNode
-    
-    const availableWidth = parentNode.offsetWidth
-    const actualWidth = node.offsetWidth
-    const actualScale = availableWidth / actualWidth
-    
-    if (scale === actualScale)
-      return
-    
-    if (actualScale < 1) {
-      this.setState({ scale: actualScale })
-    } else if (scale < 1) {
-      this.setState({ scale: 1 })
-    }
-  }
-  
-  render() {
-    const { scale } = this.state
-    
-    return (
-      <div
-        className="auto-scaling-text"
-        style={{ transform: `scale(${scale},${scale})` }}
-        ref={node => this.node = node}
-      >{this.props.children}</div>
-    )
-  }
-}
+const toLocaleString = (num) =>
+  String(num).replace(/(?<!\..*)(\d)(?=(?:\d{3})+(?:\.|$))/g, "$1 ");
 
-class CalculatorDisplay extends React.Component {
-  render() {
-    const { value, ...props } = this.props
-    
-    const language = navigator.language || 'en-US'
-    let formattedValue = parseFloat(value).toLocaleString(language, {
-      useGrouping: true,
-      maximumFractionDigits: 6
-    })
-    
-    // Add back missing .0 in e.g. 12.0
-    const match = value.match(/\.\d*?(0*)$/)
-    
-    if (match)
-      formattedValue += (/[1-9]/).test(match[0]) ? match[1] : match[0]
-    
-    return (
-      <div {...props} className="calculator-display">
-        <AutoScalingText>{formattedValue}</AutoScalingText>
-      </div>
-    )
-  }
-}
+const removeSpaces = (num) => num.toString().replace(/\s/g, "");
 
-class CalculatorKey extends React.Component {
-  render() {
-    const { onPress, className, ...props } = this.props
-    
-    return (
-      <PointTarget onPoint={onPress}>
-        <button className={`calculator-key ${className}`} {...props}/>
-      </PointTarget>
-    )
-  }
-}
 
-const CalculatorOperations = {
-  '/': (prevValue, nextValue) => prevValue / nextValue,
-  '*': (prevValue, nextValue) => prevValue * nextValue,
-  '+': (prevValue, nextValue) => prevValue + nextValue,
-  '-': (prevValue, nextValue) => prevValue - nextValue,
-  '=': (prevValue, nextValue) => nextValue
-}
+function App () {
 
-class Calculator extends React.Component {
-  state = {
-    value: null,
-    displayValue: '0',
-    operator: null,
-    waitingForOperand: false
-  };
-  
-  clearAll() {
-    this.setState({
-      value: null,
-      displayValue: '0',
-      operator: null,
-      waitingForOperand: false
-    })
-  }
+  let [calc, setCalc] = useState({
+    sign: "",
+    num: 0,
+    res: 0,
+  });
 
-  clearDisplay() {
-    this.setState({
-      displayValue: '0'
-    })
-  }
-  
-  clearLastChar() {
-    const { displayValue } = this.state
-    
-    this.setState({
-      displayValue: displayValue.substring(0, displayValue.length - 1) || '0'
-    })
-  }
-  
-  toggleSign() {
-    const { displayValue } = this.state
-    const newValue = parseFloat(displayValue) * -1
-    
-    this.setState({
-      displayValue: String(newValue)
-    })
-  }
-  
-  inputPercent() {
-    const { displayValue } = this.state
-    const currentValue = parseFloat(displayValue)
-    
-    if (currentValue === 0)
-      return
-    
-    const fixedDigits = displayValue.replace(/^-?\d*\.?/, '')
-    const newValue = parseFloat(displayValue) / 100
-    
-    this.setState({
-      displayValue: String(newValue.toFixed(fixedDigits.length + 2))
-    })
-  }
-  
-  inputDot() {
-    const { displayValue } = this.state
-    
-    if (!(/\./).test(displayValue)) {
-      this.setState({
-        displayValue: displayValue + '.',
-        waitingForOperand: false
-      })
-    }
-  }
-  
-  inputDigit(digit) {
-    const { displayValue, waitingForOperand } = this.state
-    
-    if (waitingForOperand) {
-      this.setState({
-        displayValue: String(digit),
-        waitingForOperand: false
-      })
-    } else {
-      this.setState({
-        displayValue: displayValue === '0' ? String(digit) : displayValue + digit
-      })
-    }
-  }
-  
-  performOperation(nextOperator) {    
-    const { value, displayValue, operator } = this.state
-    const inputValue = parseFloat(displayValue)
-    
-    if (value == null) {
-      this.setState({
-        value: inputValue
-      })
-    } else if (operator) {
-      const currentValue = value || 0
-      const newValue = CalculatorOperations[operator](currentValue, inputValue)
-      
-      this.setState({
-        value: newValue,
-        displayValue: String(newValue)
-      })
-    }
-    
-    this.setState({
-      waitingForOperand: true,
-      operator: nextOperator
-    })
-  }
-  
-  handleKeyDown = (event) => {
-    let { key } = event
-    
-    if (key === 'Enter')
-      key = '='
-    
-    if ((/\d/).test(key)) {
-      event.preventDefault()
-      this.inputDigit(parseInt(key, 10))
-    } else if (key in CalculatorOperations) {
-      event.preventDefault()
-      this.performOperation(key)
-    } else if (key === '.') {
-      event.preventDefault()
-      this.inputDot()
-    } else if (key === '%') {
-      event.preventDefault()
-      this.inputPercent()
-    } else if (key === 'Backspace') {
-      event.preventDefault()
-      this.clearLastChar()
-    } else if (key === 'Clear') {
-      event.preventDefault()
-      
-      if (this.state.displayValue !== '0') {
-        this.clearDisplay()
-      } else {
-        this.clearAll()
-      }
+  const numClickHandler = (e) => {
+    e.preventDefault();
+    const value = e.target.innerHTML;
+
+    if (removeSpaces(calc.num).length < 16) {
+      setCalc({
+        ...calc,
+        num:
+          calc.num === 0 && value === "0"
+            ? "0"
+            : removeSpaces(calc.num) % 1 === 0
+            ? toLocaleString(Number(removeSpaces(calc.num + value)))
+            : toLocaleString(calc.num + value),
+        res: !calc.sign ? 0 : calc.res,
+      });
     }
   };
-  
-  componentDidMount() {
-    document.addEventListener('keydown', this.handleKeyDown)
-  }
-  
-  componentWillUnmount() {
-    document.removeEventListener('keydown', this.handleKeyDown)
-  }
-  
-  render() {
-    const { displayValue } = this.state
-    
-    const clearDisplay = displayValue !== '0'
-    const clearText = clearDisplay ? 'C' : 'AC'
-    
-    return (
-      <div className="calculator">
-        <CalculatorDisplay value={displayValue}/>
-        <div className="calculator-keypad">
-          <div className="input-keys">
-            <div className="function-keys">
-              <CalculatorKey className="key-clear" onPress={() => clearDisplay ? this.clearDisplay() : this.clearAll()}>{clearText}</CalculatorKey>
-              <CalculatorKey className="key-sign" onPress={() => this.toggleSign()}>±</CalculatorKey>
-              <CalculatorKey className="key-percent" onPress={() => this.inputPercent()}>%</CalculatorKey>
-            </div>
-            <div className="digit-keys">
-              <CalculatorKey className="key-0" onPress={() => this.inputDigit(0)}>0</CalculatorKey>
-              <CalculatorKey className="key-dot" onPress={() => this.inputDot()}>●</CalculatorKey>
-              <CalculatorKey className="key-1" onPress={() => this.inputDigit(1)}>1</CalculatorKey>
-              <CalculatorKey className="key-2" onPress={() => this.inputDigit(2)}>2</CalculatorKey>
-              <CalculatorKey className="key-3" onPress={() => this.inputDigit(3)}>3</CalculatorKey>
-              <CalculatorKey className="key-4" onPress={() => this.inputDigit(4)}>4</CalculatorKey>
-              <CalculatorKey className="key-5" onPress={() => this.inputDigit(5)}>5</CalculatorKey>
-              <CalculatorKey className="key-6" onPress={() => this.inputDigit(6)}>6</CalculatorKey>
-              <CalculatorKey className="key-7" onPress={() => this.inputDigit(7)}>7</CalculatorKey>
-              <CalculatorKey className="key-8" onPress={() => this.inputDigit(8)}>8</CalculatorKey>
-              <CalculatorKey className="key-9" onPress={() => this.inputDigit(9)}>9</CalculatorKey>
-            </div>
-          </div>
-          <div className="operator-keys">
-            <CalculatorKey className="key-divide" onPress={() => this.performOperation('/')}>÷</CalculatorKey>
-            <CalculatorKey className="key-multiply" onPress={() => this.performOperation('*')}>×</CalculatorKey>
-            <CalculatorKey className="key-subtract" onPress={() => this.performOperation('-')}>−</CalculatorKey>
-            <CalculatorKey className="key-add" onPress={() => this.performOperation('+')}>+</CalculatorKey>
-            <CalculatorKey className="key-equals" onPress={() => this.performOperation('=')}>=</CalculatorKey>
-          </div>
-        </div>
-      </div>
-    )
-  }
-}
 
-ReactDOM.render(
-  <Calculator/>,
-  document.getElementById('app')
-)
+  const commaClickHandler = (e) => {
+    e.preventDefault();
+    const value = e.target.innerHTML;
+  
+    setCalc({
+      ...calc,
+      num: !calc.num.toString().includes(".") ? calc.num + value : calc.num,
+    });
+  };
+
+  const signClickHandler = (e) => {
+    e.preventDefault();
+    const value = e.target.innerHTML;
+
+    setCalc({
+      ...calc,
+      sign: value,
+      res: !calc.res && calc.num ? calc.num : calc.res,
+      num: 0,
+    });
+  };
+
+  const equalsClickHandler = () => {
+    if (calc.sign && calc.num) {
+      const math = (a, b, sign) =>
+        sign === "+"
+          ? a + b
+          : sign === "-"
+          ? a - b
+          : sign === "X"
+          ? a * b
+          : a / b;
+  
+      setCalc({
+        ...calc,
+        res:
+          calc.num === "0" && calc.sign === "/"
+            ? "Can't divide with 0"
+            : math(Number(calc.res), Number(calc.num), calc.sign),
+        sign: "",
+        num: 0,
+      });
+    }
+  };
+
+  const invertClickHandler = () => {
+    setCalc({
+      ...calc,
+      num: calc.num ? calc.num * -1 : 0,
+      res: calc.res ? calc.res * -1 : 0,
+      sign: "",
+    });
+  };
+
+  const percentClickHandler = () => {
+    let num = calc.num ? parseFloat(calc.num) : 0;
+    let res = calc.res ? parseFloat(calc.res) : 0;
+  
+    setCalc({
+      ...calc,
+      num: (num /= Math.pow(100, 1)),
+      res: (res /= Math.pow(100, 1)),
+      sign: "",
+    });
+  };
+
+  const resetClickHandler = () => {
+    setCalc({
+      ...calc,
+      sign: "",
+      num: 0,
+      res: 0,
+    });
+  };
+
+
+  return (
+  <>
+<Wrapper>
+      <Home value={calc.num ? calc.num : calc.res} />
+      <ButtonsContainer>
+        {btnValues.flat().map((btn, i) => {
+          return (
+            <Button
+              key={i}
+              className={btn === "=" ? "equals" : ""}
+              value={btn}
+              onClick={
+                btn === "C"
+                  ? resetClickHandler
+                  : btn === "+-"
+                  ? invertClickHandler
+                  : btn === "%"
+                  ? percentClickHandler
+                  : btn === "="
+                  ? equalsClickHandler
+                  : btn === "/" || btn === "X" || btn === "-" || btn === "+"
+                  ? signClickHandler
+                  : btn === "."
+                  ? commaClickHandler
+                  : numClickHandler
+              }
+            />
+          );
+        })}
+      </ButtonsContainer>
+    </Wrapper>
+  </>
+    
+  );
+};
+
+export default App;

@@ -1,0 +1,15 @@
+.home {
+    height: 100px;
+    width: 100%;
+    margin-bottom: 10px;
+    padding: 0 10px;
+    background-color: #4b8cc52d;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    color: white;
+    font-weight: bold;
+    box-sizing: border-box;
+  }
+  
